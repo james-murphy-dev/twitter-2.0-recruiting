@@ -4,15 +4,12 @@ import os
 import re
 import json
 import requests
-import datetime
 import dateutil.parser
 import gspread
 from requests_oauthlib import OAuth2Session
 from urlextract import URLExtract
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 import requests
-
-from google.oauth2 import service_account
 
 # This example is set up to retrieve Direct Message events of the authenticating user. This supports both
 # one-to-one and group conversations.
@@ -57,10 +54,10 @@ RECRUITMENT_TWEET_TIME = "2022-11-27T18:42:00.000Z"
 cutoff_date = dateutil.parser.parse(RECRUITMENT_TWEET_TIME)
 
 # recgonized hostnames, feel free to add more
-LINKEDIN_HOSTNAME = "https://linkedin.com/"
-GITHUB_HOSTNAME = "https://github.com/"
+HOSTNAME_LINKEDIN = "https://linkedin.com/"
+HOSTNAME_GITHUB = "https://github.com/"
 
-known_links = [LINKEDIN_HOSTNAME, GITHUB_HOSTNAME]
+known_links = [HOSTNAME_LINKEDIN, HOSTNAME_GITHUB]
 minimum_link_count = 1 # complete submissions need at least 1 non-LinkedIn link
 
 # recognized keywords
@@ -199,12 +196,12 @@ def parse_links(dm):
     
         sender = dm[KEY_SENDER]
 
-        if (user_table[sender][KEY_LINKEDIN] is None and split_url.hostname==LINKEDIN_HOSTNAME):
+        if (user_table[sender][KEY_LINKEDIN] is None and split_url.hostname==HOSTNAME_LINKEDIN):
             # LinkedIn
             user_table[sender][KEY_LINKEDIN] = split_url.path
             # decide if you want to allow LinkedIn alone to complete a submission
             # user_table[sender]['links']+=1
-        elif (split_url.hostname==GITHUB_HOSTNAME):
+        elif (split_url.hostname==HOSTNAME_GITHUB):
             # could be multiple GitHub links
             user_table[sender][KEY_GITHUB].append(split_url.path)
             user_table[sender][KEY_LINK_COUNT]+=1      
@@ -223,7 +220,7 @@ def get_row_values(applicant):
             applicant[KEY_LINKEDIN],
             "\n".join(applicant[KEY_GITHUB]),
             "\n".join(applicant[KEY_OTHER_LINKS]),
-            "\n".join(applicant[KEY_MESSAGES]),
+            "\n\n".join(applicant[KEY_MESSAGES]),
             applicant[KEY_ATTACHMENTS]
         ]
     ]
@@ -249,7 +246,7 @@ def update_rows(sheet, profiles):
         else:
             # if no, create the row
             first_empty_row = next_available_row(sheet) #search for first empty cell
-            data = get_row_values(applicant) # [ [1], [1], [1], [1], [1] ,[1] ,[1]] #
+            data = get_row_values(applicant)
             cell_range = f"A{first_empty_row}:G{first_empty_row}"
             sheet.update(cell_range, data)
        
@@ -333,11 +330,13 @@ def extract_user_profile(access, dm):
     parse_links(dm)
 
     # add text contents of DM (cover letter/resume) to user profile 
+    # TODO convert links to hyperlinks
+    # TODO exclude DMs only containing links (redundant)
+    # TODO add timestamps to each message
     if (len(user_table[sender][KEY_MESSAGES]) > 0):
         # DMs are returned from API in reverse-chronological order, so prepend each one to the beginning of messages list
         user_table[sender][KEY_MESSAGES] = [dm['text']] + user_table[sender][KEY_MESSAGES]
     else:
-        # TODO convert links to hyperlinks
         user_table[sender][KEY_MESSAGES] = [dm['text']]
 
     # check if applicant attached an image (resume, portfolio, etc.)

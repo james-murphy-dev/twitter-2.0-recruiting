@@ -54,8 +54,8 @@ RECRUITMENT_TWEET_TIME = "2022-11-27T18:42:00.000Z"
 cutoff_date = dateutil.parser.parse(RECRUITMENT_TWEET_TIME)
 
 # recgonized hostnames, feel free to add more
-HOSTNAME_LINKEDIN = "https://linkedin.com/"
-HOSTNAME_GITHUB = "https://github.com/"
+HOSTNAME_LINKEDIN = "www.linkedin.com"
+HOSTNAME_GITHUB = "www.github.com"
 
 known_links = [HOSTNAME_LINKEDIN, HOSTNAME_GITHUB]
 minimum_link_count = 1 # complete submissions need at least 1 non-LinkedIn link
@@ -212,12 +212,20 @@ def parse_links(dm):
             user_table[sender][KEY_OTHER_LINKS].append(r.url)
             user_table[sender][KEY_LINK_COUNT]+=1
 
+def get_linkedin_cell(path):
+    if (path==None):
+        return None
+    return f"=HYPERLINK(\"{HOSTNAME_LINKEDIN+path}\", \"{path}\")"
+
+def get_github_cell(path):
+    return f"=HYPERLINK({HOSTNAME_GITHUB+path}, {path})"
+
 def get_row_values(applicant):
     return [
         [
             applicant[KEY_USERNAME],
             "\n".join(applicant[KEY_EMAILS]),
-            applicant[KEY_LINKEDIN],
+            get_linkedin_cell(applicant[KEY_LINKEDIN]),
             "\n".join(applicant[KEY_GITHUB]),
             "\n".join(applicant[KEY_OTHER_LINKS]),
             "\n\n".join(applicant[KEY_MESSAGES]),
@@ -239,7 +247,7 @@ def update_rows(sheet, profiles):
      # update rows with new data, create new rows for new submissions
     for applicant in profiles.values():
         # for each applicant, determine if there is an existing row
-        applicant_username_cell = sheet.find(applicant[KEY_USERNAME])
+        applicant_username_cell = sheet.find(applicant[KEY_USERNAME], in_column=1)
         if (applicant_username_cell is not None):
             # if yes, update the row with any new data
             update_row(applicant_username_cell.row, applicant, sheet)
@@ -267,15 +275,14 @@ def update_sheet():
     except:
         # create worksheets if the document is new
         workbook = gc.create(SPREADSHEET_NAME)
-        workbook.del_worksheet()
-        eng_sheet = workbook.add_worksheet(ENG_SHEET_NAME, len(engineers), len(SHEET_COLUMNS))
-        design_sheet = workbook.add_worksheet(DESIGN_SHEET_NAME, len(designers), len(SHEET_COLUMNS))
+        eng_sheet = workbook.add_worksheet(ENG_SHEET_NAME, len(engineers)+1, len(SHEET_COLUMNS))
+        design_sheet = workbook.add_worksheet(DESIGN_SHEET_NAME, len(designers)+1, len(SHEET_COLUMNS))
         
         # remove default Sheet1
-        sheet1 = workbook.get_worksheet(0)
-        workbook.del_worksheet(sheet1)
+        #sheet1 = workbook.get_worksheet(0)
+        #workbook.del_worksheet(sheet1)
 
-        eng_sheet.update("A1:G1", [SHEET_COLUMNS])
+        eng_sheet.update("A1:H1", [SHEET_COLUMNS])
     
     # remove default Sheet1
     sheet1 = workbook.get_worksheet(0)
